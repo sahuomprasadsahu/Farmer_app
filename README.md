@@ -111,8 +111,8 @@ farmer-app/
 ### 1️⃣ Clone repository
 
 ```
-git clone https://github.com/sahuomprasadsahu/farmer-app.git
-cd farmer-app
+git clone https://github.com/sahuomprasadsahu/Farmer_app.git
+cd Farmer_app
 ```
 
 ### 2️⃣ Install dependencies
