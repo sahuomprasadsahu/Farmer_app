@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Smart Plant Doctor</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+body {
+    margin: 0;
+    font-family: Arial;
+    background: #f4f7f9;
+}
+
+/* HEADER */
+.header {
+    padding: 15px;
+    font-size: 20px;
+    font-weight: bold;
+    color: #2e7d32;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+/* LANGUAGE */
+.lang-select {
+    padding: 6px;
+    border-radius: 10px;
+}
+
+/* SCANNER */
+.scanner-card {
+    margin: 12px;
+    border-radius: 20px;
+    overflow: hidden;
+    position: relative;
+    height: 55vh;
+    background: black;
+}
+
+video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* BUTTONS */
+.buttons {
+    position: absolute;
+    bottom: 15px;
+    width: 100%;
+    text-align: center;
+}
+
+button {
+    padding: 10px 20px;
+    border-radius: 20px;
+    border: none;
+    margin: 5px;
+    font-size: 14px;
+}
+
+.scan-btn {
+    background: #00ff88;
+}
+
+.upload-btn {
+    background: white;
+}
+
+/* RESULT */
+.result-card {
+    background: white;
+    padding: 20px;
+    margin: 15px;
+    border-radius: 15px;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+}
+
+/* FEATURES */
+.features {
+    padding: 15px;
+}
+
+.feature-card {
+    background: white;
+    padding: 15px;
+    margin-bottom: 10px;
+    border-radius: 12px;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+}
+
+/* LOADER */
+.loader {
+    display: none;
+    position: fixed;
+    top:0;
+    left:0;
+    width:100%;
+    height:100%;
+    background: rgba(0,0,0,0.6);
+    justify-content:center;
+    align-items:center;
+    z-index:999;
+}
+
+.loader div {
+    width:50px;
+    height:50px;
+    border:5px solid #fff;
+    border-top:5px solid #00ff88;
+    border-radius:50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% {transform:rotate(0deg);}
+    100% {transform:rotate(360deg);}
+}
+</style>
+</head>
+
+<body>
+
+<!-- HEADER -->
+<div class="header">
+    🌿 Smart Plant Doctor
+
+    <select class="lang-select" onchange="saveLang(this.value)">
+        <option value="en">English</option>
+        <option value="od">Odia</option>
+    </select>
+</div>
+
+<!-- LOADER -->
+<div class="loader" id="loader">
+    <div></div>
+</div>
+
+<!-- SCANNER -->
+<div class="scanner-card">
+    <video id="video" autoplay></video>
+
+    <div class="buttons">
+
+        <!-- CAMERA -->
+        <form method="POST" action="/predict" id="cameraForm">
+            <input type="hidden" name="image_data" id="image_data">
+            <input type="hidden" name="lang" id="cam_lang">
+            <button type="button" class="scan-btn" onclick="captureImage()">Scan</button>
+        </form>
+
+        <!-- UPLOAD -->
+        <form method="POST" action="/predict" enctype="multipart/form-data" onsubmit="showLoader()">
+            <input type="file" name="file" accept="image/*">
+            <input type="hidden" name="lang" id="upload_lang">
+            <button type="submit" class="upload-btn">Upload</button>
+        </form>
+
+    </div>
+</div>
+
+<canvas id="canvas" style="display:none;"></canvas>
+
+<!-- RESULT -->
+{% if prediction %}
+<div class="result-card">
+
+    <h2>🌿 Prediction Result</h2>
+
+    <h3 style="color: {{ status_color }}">
+        {{ status_text }}
+    </h3>
+
+    <p><strong>🌱 Disease Name:</strong> {{ prediction }}</p>
+
+    <p><strong>📊 Confidence:</strong> {{ confidence }}%</p>
+
+    <p><strong>📖 Description:</strong><br> {{ description }}</p>
+
+    <p><strong>💊 Solution:</strong><br> {{ solution }}</p>
+
+    <img src="data:image/png;base64,{{ img_data }}" width="200">
+
+</div>
+{% endif %}
+
+<!-- FEATURES -->
+<div class="features">
+
+    <div class="feature-card">
+        <h3>🌱 Disease Detection</h3>
+        Detect plant diseases instantly using AI.
+    </div>
+
+    <div class="feature-card">
+        <h3>📖 Detailed Information</h3>
+        Get clear explanation of plant problems.
+    </div>
+
+    <div class="feature-card">
+        <h3>💊 Smart Solution</h3>
+        Get easy treatment suggestions for farmers.
+    </div>
+
+    <div class="feature-card">
+        <h3>🌍 Odia Support</h3>
+        Use app in your local language.
+    </div>
+
+</div>
+
+<script>
+
+// CAMERA
+navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
+.then(stream => {
+    document.getElementById("video").srcObject = stream;
+});
+
+// CAPTURE IMAGE
+function captureImage() {
+
+    showLoader();
+
+    let video = document.getElementById("video");
+    let canvas = document.getElementById("canvas");
+    let ctx = canvas.getContext("2d");
+
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+    ctx.drawImage(video, 0, 0);
+
+    let img = canvas.toDataURL("image/jpeg");
+
+    document.getElementById("image_data").value = img;
+    document.getElementById("cam_lang").value = localStorage.getItem("lang") || "en";
+
+    document.getElementById("cameraForm").submit();
+}
+
+// LOADER
+function showLoader(){
+    document.getElementById("loader").style.display = "flex";
+}
+
+// SAVE LANGUAGE
+function saveLang(lang){
+    localStorage.setItem("lang", lang);
+}
+
+// LOAD DEFAULT LANGUAGE
+window.onload = function(){
+    let lang = localStorage.getItem("lang") || "en";
+    document.querySelector(".lang-select").value = lang;
+    document.getElementById("upload_lang").value = lang;
+}
+
+</script>
+
+</body>
+</html>
