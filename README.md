@@ -1,6 +1,8 @@
-
 # 🌱 Farmer App – Plant Disease Detection System
+
 > 🚀 Open to internship opportunities in AI/ML, Software Development, and Data Science | Actively seeking opportunities
+
+---
 
 ## 🚀 Overview
 
@@ -17,33 +19,41 @@ This app uses deep learning models to:
 
 ## 🎯 Features
 
-✔ Plant detection using CNN model
-✔ Disease classification using deep learning
-✔ Solution & description for each disease
-✔ Confidence score display
-✔ Supports camera & file upload
-✔ Multilingual support (English + Odia)
+* ✔ Plant detection using CNN model
+* ✔ Disease classification using deep learning
+* ✔ Solution & description for each disease
+* ✔ Confidence score display
+* ✔ Supports camera & file upload
+* ✔ Multilingual support (English + Odia)
 
 ---
+
 ## 📸 Screenshots
+
 Below are real screenshots of the application in action:
 
 ### 🏠 Home Page
+
 ![Home page](screenshots/home.png)
 
 ### 🌐 Language Selection
+
 ![Language Option](screenshots/language.png)
 
 ### 📤 File Upload
+
 ![File Uploading](screenshots/file_upload.png)
 
 ### 🦠 Disease Prediction
+
 ![Disease prediction](screenshots/predict_disease.png)
 
 ### ✅ Healthy Prediction
+
 ![Healthy Prediction](screenshots/predict_healthy.png)
 
 ### ⚠️ Non-Leaf Detection
+
 ![Non leaf Prediction](screenshots/predict_non_leaf.png)
 
 ---
@@ -51,15 +61,15 @@ Below are real screenshots of the application in action:
 ## 🧠 How It Works
 
 1. User uploads leaf image
-2. Image is processed
+2. Image is preprocessed
 3. Plant model detects plant type
 4. Disease model predicts disease
-5. App shows:
+5. App displays:
 
    * Disease name
    * Description
    * Solution
-   * Confidence
+   * Confidence score
 
 ---
 
@@ -90,7 +100,9 @@ farmer-app/
 │   ├── class_names.json
 │
 ├── templates/
-├──screenshots/
+├── static/
+├── screenshots/
+```
 
 ---
 
@@ -141,15 +153,16 @@ You can use plant disease datasets from:
 * Custom datasets
 
 ---
+
 ## ⚠️ Limitations
 
-- Supports limited plant types (10–11 crops only)
+* Supports limited plant types (10–11 crops only)
   (Apple, Cherry, Corn, Grape, Peach, Pepper, Potato, Rice, Strawberry, Tomato, Non-Leaf)
-- Model accuracy depends on image quality
-- Cannot detect all possible plant diseases
-- May give incorrect prediction for unknown plants
-- Requires clear leaf images for best results
-- Not suitable for real-time large-scale farming use
+* Model accuracy depends on image quality
+* Cannot detect all possible plant diseases
+* May give incorrect prediction for unknown plants
+* Requires clear leaf images for best results
+* Not suitable for real-time large-scale farming use
 
 ---
 
@@ -168,13 +181,14 @@ Farmers often face difficulty in identifying plant diseases early.
 This project aims to provide a simple AI-based solution to assist them.
 
 ---
+
 ## 📬 Contact
+
 If you like this project or have suggestions, feel free to connect.
 
-- Name: Om Prasad Sahu
-- Email: your-sahuomprasadsahu@gmail.com 
-- LinkedIn: https://www.linkedin.com/in/om-prasad-sahu-28756427b?utm_source=share_via&utm_content=profile&utm_medium=member_android
-
+* Name: Om Prasad Sahu
+* Email: sahuomprasadsahu@gmail.com
+* LinkedIn: https://www.linkedin.com/in/om-prasad-sahu-28756427b
 
 ---
 
