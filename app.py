@@ -1,6 +1,4 @@
-#==========
-#Farmer_app
-#==========
+
 import cv2
 import numpy as np
 from PIL import Image
@@ -10,9 +8,44 @@ import os
 import json
 import base64
 from io import BytesIO
+import requests
+from sklearn.linear_model import LinearRegression
+import pickle
+from dotenv import load_dotenv
 
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 30 * 1024 * 1024
+
+# ===============================
+# MARKET MODEL (Simple Regression)
+# ===============================
+def train_market_model():
+    import random
+    import pandas as pd
+
+    data = []
+
+    for i in range(500):
+        price = random.randint(15, 30)
+        quantity = random.randint(50, 200)
+        transport = random.randint(100, 500)
+        waste = random.uniform(0.05, 0.2)
+
+        profit = (price * quantity) - transport - (waste * price * quantity)
+
+        data.append([price, quantity, transport, waste, profit])
+
+    df = pd.DataFrame(data, columns=["price","quantity","transport","waste","profit"])
+
+    X = df[["price","quantity","transport","waste"]]
+    y = df["profit"]
+
+    model = LinearRegression()
+    model.fit(X, y)
+
+    return model
+
+market_model = train_market_model()
 
 # ===============================
 # LOAD MODELS
@@ -20,7 +53,9 @@ app.config['MAX_CONTENT_LENGTH'] = 30 * 1024 * 1024
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 plant_model = tf.keras.models.load_model(os.path.join(BASE_DIR, "models/plant_image_classifier.keras"))
+#plant_model.summary() #used to know model parameters
 final_model = tf.keras.models.load_model(os.path.join(BASE_DIR, "models/final_model.keras"))
+#final_model.summary()
 
 # ===============================
 # LOAD CLASS FILES
@@ -304,14 +339,192 @@ disease_info = {
 "description_od": "ଏହା ପତ୍ର ନୁହେଁ।",
 "solution_od": "ଠିକ୍ ପତ୍ର ଫଟୋ ଦିଅନ୍ତୁ।"
 }
-
 }
+
+def t(key, lang):
+    return translations.get(key,{}).get(lang, key)
+
+#================================
+#Wheather API key
+#================================
+
+load_dotenv()
+
+API_KEY = os.getenv("API_KEY")
+#===============================
+#Get-Wheather 
+#===============================
+def get_current_weather(city=None, lat=None, lon=None):
+    try:
+
+        if city:
+            url = f"http://api.openweathermap.org/data/2.5/weather?q={city}&appid={API_KEY}&units=metric"
+        else:
+            url = f"http://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={API_KEY}&units=metric"
+
+        res = requests.get(url).json()
+
+        return {
+            "temp": res["main"]["temp"],
+            "humidity": res["main"]["humidity"],
+            "desc": res["weather"][0]["description"],
+            "city": res["name"]
+        }
+    except:
+        return None
+
+# ===============================
+# 7 DAY FORECAST
+# ===============================
+def get_7day_weather(lat, lon):
+
+    try:
+        url = f"https://api.openweathermap.org/data/2.5/forecast?lat={lat}&lon={lon}&appid={API_KEY}&units=metric"
+        res = requests.get(url).json()
+
+        forecast = []
+        for i in range(0, len(res["list"]), 8):  # every 24 hours
+            day = res["list"][i]
+            forecast.append({
+                "temp": day["main"]["temp"],
+                "desc": day["weather"][0]["description"]
+            })
+
+        return forecast[:7]
+    except:
+        return []
+
+
+
 # ===============================
 # HOME
 # ===============================
-@app.route("/")
+@app.route("/", methods=["GET", "POST"])
 def home():
-    return render_template("index.html")
+
+    weather = None
+
+    if request.method == "POST":
+        city = request.form.get("city")
+
+        if city:
+            weather = get_current_weather(city=city)
+        else:
+            lat = request.form.get("lat")
+            lon = request.form.get("lon")
+            weather = get_current_weather(lat=lat, lon=lon)
+
+    return render_template("index.html", weather=weather)
+# ===============================
+# MARKET PAGE
+# ===============================
+@app.route("/market")
+def market_page():
+    return render_template("market.html")
+
+
+# ===============================
+# PREDICT MARKET
+# ===============================
+@app.route("/predict_market", methods=["POST"])
+def predict_market():
+
+    try:
+        # ✅ SAFE INPUT (avoid NoneType error)
+        num_markets = int(request.form.get("num_markets") or 0)
+        quantity = float(request.form.get("quantity") or 0)
+
+        # ❌ validation
+        if num_markets < 1 or quantity <= 0:
+            return render_template("market.html", error="Invalid input")
+
+        markets = []
+
+        # ===============================
+        # COLLECT MARKET DATA
+        # ===============================
+        for i in range(1, num_markets + 1):
+
+            name = request.form.get(f"name{i}")
+            price = request.form.get(f"price{i}")
+            transport = request.form.get(f"transport{i}")
+            waste = request.form.get(f"waste{i}")
+
+            # ❌ skip incomplete markets
+            if not name or not price or not transport or not waste:
+                continue
+
+            try:
+                price = float(price)
+                transport = float(transport)
+                waste = float(waste) / 100
+            except:
+                continue  # skip invalid values
+
+            markets.append({
+                "name": name,
+                "price": price,
+                "quantity": quantity,
+                "transport": transport,
+                "waste": waste
+            })
+
+        # ❌ if no valid markets
+        if len(markets) == 0:
+            return render_template("market.html", error="No valid market data")
+
+        best_market = None
+        max_profit = float('-inf')
+        results = []
+
+        # ===============================
+        # PREDICTION
+        # ===============================
+        for m in markets:
+
+            X = [[m["price"], m["quantity"], m["transport"], m["waste"]]]
+
+            try:
+                profit = market_model.predict(X)[0]
+            except:
+                profit = (m["price"] * m["quantity"]) - m["transport"] - (m["waste"] * m["price"] * m["quantity"])
+                #to avaoid crash (correct with fall back)
+
+            results.append({
+                "name": m["name"],
+                "profit": round(profit, 2)
+            })
+
+            if profit > max_profit:
+                max_profit = profit
+                best_market = m["name"]
+
+        # ===============================
+        # RETURN RESULT
+        # ===============================
+        return render_template(
+            "market.html",
+            best_market=best_market,
+            max_profit=round(max_profit, 2),
+            results=results
+        )
+
+    except Exception as e:
+        # 🔥 debug error safely
+        print("ERROR:", e)
+        return render_template("market.html", error="Something went wrong")
+#===============================
+#Get-Forecast api
+#===============================
+@app.route("/forecast", methods=["POST"])
+def forecast():
+
+    lat = request.form.get("lat")
+    lon = request.form.get("lon")
+
+    data = get_7day_weather(lat, lon)
+
+    return json.dumps(data)
 
 
 # ===============================
@@ -319,109 +532,84 @@ def home():
 # ===============================
 @app.route("/predict", methods=["POST"])
 def predict():
+    try:
+        lang = request.form.get("lang", "en")
 
-    lang = request.form.get("lang", "en")  # 🔥 language select
+        image = None
+        image_data = request.form.get("image_data")
 
-    image = None
-    image_data = request.form.get("image_data")
-
-    # ===============================
-    # GET IMAGE
-    # ===============================
-    if image_data:
-        try:
+        # CAMERA
+        if image_data:
             image_data = image_data.split(",")[1]
             image_bytes = base64.b64decode(image_data)
             image = Image.open(BytesIO(image_bytes)).convert("RGB")
-        except:
-            return "Camera error"
 
-    elif "file" in request.files:
-        file = request.files["file"]
-        if file.filename != "":
-            image = Image.open(file).convert("RGB")
+        # UPLOAD
+        elif request.files.get("file"):
+            file = request.files["file"]
+            if file and file.filename != "":
+                image = Image.open(file).convert("RGB")
 
-    if image is None:
-        return "No image"
+        if image is None:
+            return "No image"
 
-    # ===============================
-    # PLANT MODEL
-    # ===============================
-    plant_img = image.resize((128, 128))
-    plant_array = np.array(plant_img) / 255.0
-    plant_array = np.expand_dims(plant_array, axis=0)
+        # Resize
+        image = image.resize((512,512))
 
-    plant_pred = plant_model.predict(plant_array, verbose=0)
-    plant_name = plant_classes[np.argmax(plant_pred[0])]
+        img = image.resize((224,224))
+        arr = np.array(img)/255.0
+        arr = np.expand_dims(arr,0)
 
-    # ===============================
-    # FINAL MODEL
-    # ===============================
-    final_img = image.resize((224, 224))
-    final_array = np.array(final_img) / 255.0
-    final_array = np.expand_dims(final_array, axis=0)
+        # Prediction
+        pred = final_model.predict(arr, verbose=0)
+        predicted_class = class_names[np.argmax(pred[0])]
+        confidence = float(np.max(pred[0])) * 100
 
-    final_pred = final_model.predict(final_array, verbose=0)
-    predicted_class = class_names[np.argmax(final_pred[0])].strip()
-    confidence = float(np.max(final_pred[0])) * 100
+        # ===== FIX LOGIC =====
+        if predicted_class == "Non___Leaf":
+            status_text = t("not_leaf", lang)
+            status_color = "orange"
+            info = disease_info.get("Non___Leaf", {})
 
-    # ===============================
-    # LOGIC
-    # ===============================
-    if predicted_class.lower() == "non___leaf":
-
-        status_text = t("not_leaf", lang)
-        status_color = "orange"
-
-        info = disease_info.get("Non___Leaf")
-
-    else:
-
-        if "healthy" in predicted_class.lower():
+        elif "healthy" in predicted_class.lower():
             status_text = t("healthy", lang)
             status_color = "green"
+            info = disease_info.get(predicted_class, {})
+
         else:
             status_text = t("disease", lang)
             status_color = "red"
+            info = disease_info.get(predicted_class, {})
 
-        info = disease_info.get(predicted_class)
+        # ===== DESCRIPTION FIX =====
+        description = info.get(f"description_{lang}", info.get("description_en", "No description"))
+        solution = info.get(f"solution_{lang}", info.get("solution_en", "No solution"))
 
-    # ===============================
-    # LANGUAGE OUTPUT
-    # ===============================
-    if info:
-        if lang == "od":
-            description = info.get("description_od", info.get("description_en"))
-            solution = info.get("solution_od", info.get("solution_en"))
-        else:
-            description = info.get("description_en")
-            solution = info.get("solution_en")
-    else:
-        description = "No info"
-        solution = "Consult expert"
+        # Image compress
+        buf = BytesIO()
+        image.save(buf, format="JPEG", quality=60)
+        img_str = base64.b64encode(buf.getvalue()).decode()
 
-    # ===============================
-    # IMAGE DISPLAY
-    # ===============================
-    buffered = BytesIO()
-    image.save(buffered, format="PNG")
-    img_str = base64.b64encode(buffered.getvalue()).decode()
+        return render_template(
+            "index.html",
+            prediction=predicted_class,
+            confidence=round(confidence,2),
+            description=description,
+            solution=solution,
+            img_data=img_str,
+            status_color=status_color,
+            status_text=status_text,
+            lang=lang
+        )
 
-    return render_template(
-        "index.html",
-        prediction=predicted_class,
-        description=description,
-        solution=solution,
-        confidence=round(confidence, 2),
-        img_data=img_str,
-        status_color=status_color,
-        status_text=status_text,
-        lang=lang
-    )
-
-
+    except Exception as e:
+        print("ERROR:", e)
+        return "Error"
 # ===============================
 # RUN
 # ===============================
+import os
+
 if __name__ == "__main__":
-    app.run(host="0.0.0.0",port=5000,debug=True)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
