@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Smart Market Analysis</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+body{margin:0;font-family:Arial;background:#f4f7f9;padding-bottom:70px;}
+
+.header{
+padding:15px;
+font-size:20px;
+font-weight:bold;
+color:#2e7d32;
+display:flex;
+justify-content:space-between;
+}
+
+.weather-bar{
+display:flex;
+gap:5px;
+padding:12px;
+}
+
+.weather-bar input{
+flex:1;
+padding:8px;
+border-radius:10px;
+border:1px solid #ccc;
+}
+
+.weather-bar button{
+padding:8px;
+border-radius:10px;
+border:none;
+}
+
+.card{
+background:white;
+margin:12px;
+padding:15px;
+border-radius:15px;
+}
+
+input{
+width:100%;
+padding:10px;
+margin:5px 0;
+border-radius:10px;
+border:1px solid #ccc;
+}
+
+button{
+padding:10px 20px;
+border-radius:20px;
+border:none;
+margin-top:10px;
+}
+
+.generate-btn{background:#00c853;color:white;}
+.submit-btn{background:#2e7d32;color:white;}
+
+.bottom-nav{
+position:fixed;
+bottom:0;
+width:100%;
+display:flex;
+justify-content:space-around;
+background:white;
+padding:10px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="header">
+📊 Smart Market Analysis
+</div>
+
+<!-- WEATHER -->
+<div class="weather-bar">
+<input id="cityInput" placeholder="Enter city">
+<button onclick="submitCity()">🔍</button>
+<button onclick="getLocation()">📍</button>
+</div>
+
+{% if weather %}
+<div class="card">
+🌤 {{ weather.city }} | {{ weather.temp }}°C | {{ weather.desc }}
+</div>
+{% endif %}
+
+<!-- STEP 1 -->
+<div class="card">
+<input id="numMarkets" placeholder="Number of Markets">
+<input id="totalQty" placeholder="Total Quantity (kg)">
+<button class="generate-btn" onclick="generateFields()">Generate Markets</button>
+</div>
+
+<!-- STEP 2 (Dynamic fields) -->
+<form method="POST" action="/predict_market" id="marketForm">
+
+<div id="marketFields"></div>
+
+<input type="hidden" name="num_markets" id="hiddenMarkets">
+<input type="hidden" name="quantity" id="hiddenQty">
+
+<button type="submit" class="submit-btn" onclick="prepareForm()">Analyze</button>
+
+</form>
+
+<!-- RESULT -->
+{% if best_market %}
+<div class="card">
+<h3>🏆 Best Market: {{ best_market }}</h3>
+<p>💰 Profit: ₹{{ max_profit }}</p>
+
+{% for r in results %}
+<p>{{ r.name }} → ₹{{ r.profit }}</p>
+{% endfor %}
+</div>
+{% endif %}
+
+<!-- NAV -->
+<div class="bottom-nav">
+<button onclick="goHome()">🏠 Home</button>
+<button onclick="goAnalysis()">📊 Analysis</button>
+</div>
+
+<script>
+
+function generateFields(){
+
+let n = document.getElementById("numMarkets").value;
+let container = document.getElementById("marketFields");
+
+container.innerHTML="";
+
+for(let i=1;i<=n;i++){
+
+container.innerHTML += `
+<div class="card">
+<h3>Market ${i}</h3>
+
+<input name="name${i}" placeholder="Market Name" required>
+<input name="price${i}" placeholder="Price per kg" required>
+<input name="transport${i}" placeholder="Transport Cost" required>
+<input name="waste${i}" placeholder="Waste %" required>
+
+</div>
+`;
+}
+}
+
+function prepareForm(){
+document.getElementById("hiddenMarkets").value =
+document.getElementById("numMarkets").value;
+
+document.getElementById("hiddenQty").value =
+document.getElementById("totalQty").value;
+}
+
+function goHome(){window.location.href="/";}
+function goAnalysis(){window.location.href="/market";}
+
+function submitCity(){
+let city=document.getElementById("cityInput").value;
+
+let f=document.createElement("form");
+f.method="POST";
+f.action="/market";
+
+f.innerHTML=`<input name="city" value="${city}">`;
+document.body.appendChild(f);
+f.submit();
+}
+
+function getLocation(){
+navigator.geolocation.getCurrentPosition(pos=>{
+let f=document.createElement("form");
+f.method="POST";
+f.action="/market";
+
+f.innerHTML=`
+<input name="lat" value="${pos.coords.latitude}">
+<input name="lon" value="${pos.coords.longitude}">
+`;
+document.body.appendChild(f);
+f.submit();
+});
+}
+
+</script>
+
+</body>
+</html>
