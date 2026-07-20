@@ -9,6 +9,7 @@ body {
     margin: 0;
     font-family: Arial;
     background: #f4f7f9;
+    padding-bottom: 70px;
 }
 
 /* HEADER */
@@ -19,23 +20,38 @@ body {
     color: #2e7d32;
     display: flex;
     justify-content: space-between;
-    align-items: center;
 }
 
-/* LANGUAGE */
-.lang-select {
-    padding: 6px;
+/* WEATHER */
+.weather-bar {
+    display: flex;
+    gap: 5px;
+    padding: 12px;
+}
+
+.weather-bar input {
+    flex: 1;
+    padding: 8px;
     border-radius: 10px;
+    border: 1px solid #ccc;
 }
 
-/* SCANNER */
+/* WEATHER SHOW */
+.weather-show {
+    padding:10px;
+    background:white;
+    margin:10px;
+    border-radius:10px;
+}
+
+/* CAMERA */
 .scanner-card {
     margin: 12px;
     border-radius: 20px;
     overflow: hidden;
-    position: relative;
     height: 55vh;
     background: black;
+    position: relative;
 }
 
 video {
@@ -57,24 +73,26 @@ button {
     border-radius: 20px;
     border: none;
     margin: 5px;
-    font-size: 14px;
 }
 
-.scan-btn {
-    background: #00ff88;
-}
+.scan-btn { background: #00ff88; }
+.upload-btn { background: white; }
 
-.upload-btn {
-    background: white;
-}
-
-/* RESULT */
+/* RESULT CARD */
 .result-card {
     background: white;
-    padding: 20px;
     margin: 15px;
+    padding: 15px;
     border-radius: 15px;
-    box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+    border-left: 8px solid;
+    box-shadow: 0 5px 10px rgba(0,0,0,0.1);
+}
+
+/* SMALL IMAGE FIX */
+.result-card img {
+    width: 150px;
+    border-radius: 10px;
+    margin-top: 10px;
 }
 
 /* FEATURES */
@@ -87,177 +105,191 @@ button {
     padding: 15px;
     margin-bottom: 10px;
     border-radius: 12px;
-    box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+    box-shadow: 0 3px 6px rgba(0,0,0,0.1);
 }
 
 /* LOADER */
 .loader {
-    display: none;
-    position: fixed;
-    top:0;
-    left:0;
-    width:100%;
-    height:100%;
-    background: rgba(0,0,0,0.6);
+    display:none;
+    position:fixed;
+    top:0;left:0;
+    width:100%;height:100%;
+    background:rgba(0,0,0,0.6);
     justify-content:center;
     align-items:center;
-    z-index:999;
+    color:white;
+    font-size:20px;
 }
 
-.loader div {
-    width:50px;
-    height:50px;
-    border:5px solid #fff;
-    border-top:5px solid #00ff88;
-    border-radius:50%;
-    animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-    0% {transform:rotate(0deg);}
-    100% {transform:rotate(360deg);}
+/* NAV */
+.bottom-nav {
+    position: fixed;
+    bottom: 0;
+    width: 100%;
+    display: flex;
+    justify-content: space-around;
+    background: white;
+    padding: 10px;
 }
 </style>
 </head>
 
 <body>
 
-<!-- HEADER -->
+<div class="loader" id="loader">Processing...</div>
+
 <div class="header">
-    🌿 Smart Plant Doctor
-
-    <select class="lang-select" onchange="saveLang(this.value)">
-        <option value="en">English</option>
-        <option value="od">Odia</option>
-    </select>
+🌿 Smart Plant Doctor
+<select onchange="saveLang(this.value)">
+<option value="en">English</option>
+<option value="od">Odia</option>
+</select>
 </div>
 
-<!-- LOADER -->
-<div class="loader" id="loader">
-    <div></div>
+<!-- WEATHER SEARCH -->
+<div class="weather-bar">
+<input id="cityInput" placeholder="Enter city">
+<button onclick="submitCity()">🔍</button>
+<button onclick="getLocation()">📍</button>
 </div>
 
-<!-- SCANNER -->
+<!-- WEATHER DISPLAY -->
+{% if weather %}
+<div class="weather-show">
+🌤 {{ weather.city }} | {{ weather.temp }}°C | {{ weather.desc }}
+</div>
+{% endif %}
+
+<!-- CAMERA -->
 <div class="scanner-card">
-    <video id="video" autoplay></video>
+<video id="video" autoplay></video>
 
-    <div class="buttons">
+<div class="buttons">
+<form method="POST" action="/predict" id="cameraForm">
+<input type="hidden" name="image_data" id="image_data">
+<input type="hidden" name="lang" id="cam_lang">
+<button type="button" class="scan-btn" onclick="captureImage()">Scan</button>
+</form>
 
-        <!-- CAMERA -->
-        <form method="POST" action="/predict" id="cameraForm">
-            <input type="hidden" name="image_data" id="image_data">
-            <input type="hidden" name="lang" id="cam_lang">
-            <button type="button" class="scan-btn" onclick="captureImage()">Scan</button>
-        </form>
-
-        <!-- UPLOAD -->
-        <form method="POST" action="/predict" enctype="multipart/form-data" onsubmit="showLoader()">
-            <input type="file" name="file" accept="image/*">
-            <input type="hidden" name="lang" id="upload_lang">
-            <button type="submit" class="upload-btn">Upload</button>
-        </form>
-
-    </div>
+<form method="POST" action="/predict" enctype="multipart/form-data" onsubmit="showLoader()">
+<input type="file" name="file" accept="image/*" required>
+<input type="hidden" name="lang" id="upload_lang">
+<button class="upload-btn">Upload</button>
+</form>
+</div>
 </div>
 
 <canvas id="canvas" style="display:none;"></canvas>
 
 <!-- RESULT -->
 {% if prediction %}
-<div class="result-card">
+<div class="result-card" style="border-left-color: {{ status_color }};">
 
-    <h2>🌿 Prediction Result</h2>
+<h3 style="color: {{ status_color }}">{{ status_text }}</h3>
 
-    <h3 style="color: {{ status_color }}">
-        {{ status_text }}
-    </h3>
+<p><b>Disease:</b> {{ prediction }}</p>
+<p><b>Confidence:</b> {{ confidence }}%</p>
 
-    <p><strong>🌱 Disease Name:</strong> {{ prediction }}</p>
+<p><b>Description:</b><br>{{ description }}</p>
+<p><b>Solution:</b><br>{{ solution }}</p>
 
-    <p><strong>📊 Confidence:</strong> {{ confidence }}%</p>
-
-    <p><strong>📖 Description:</strong><br> {{ description }}</p>
-
-    <p><strong>💊 Solution:</strong><br> {{ solution }}</p>
-
-    <img src="data:image/png;base64,{{ img_data }}" width="200">
+<img src="data:image/jpeg;base64,{{ img_data }}">
 
 </div>
 {% endif %}
 
-<!-- FEATURES -->
+<!-- FEATURES SECTION (RESTORED) -->
 <div class="features">
+<div class="feature-card">📊 Market Analysis</div>
+<div class="feature-card">🌱 Disease Detection</div>
+<div class="feature-card">📖 Information</div>
+<div class="feature-card">💊 Solution Guide</div>
+<div class="feature-card">🌍 Odia Support</div>
+</div>
 
-    <div class="feature-card">
-        <h3>🌱 Disease Detection</h3>
-        Detect plant diseases instantly using AI.
-    </div>
-
-    <div class="feature-card">
-        <h3>📖 Detailed Information</h3>
-        Get clear explanation of plant problems.
-    </div>
-
-    <div class="feature-card">
-        <h3>💊 Smart Solution</h3>
-        Get easy treatment suggestions for farmers.
-    </div>
-
-    <div class="feature-card">
-        <h3>🌍 Odia Support</h3>
-        Use app in your local language.
-    </div>
-
+<!-- NAV (FIXED BUTTON) -->
+<div class="bottom-nav">
+<a href="/"><button type="button">🏠 Home</button></a>
+<a href="/market"><button type="button">📊 Analysis</button></a>
 </div>
 
 <script>
 
-// CAMERA
-navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
-.then(stream => {
-    document.getElementById("video").srcObject = stream;
-});
+window.onload = function(){
 
-// CAPTURE IMAGE
-function captureImage() {
+    navigator.mediaDevices.getUserMedia({video:true})
+    .then(s=>{ video.srcObject = s; });
+
+    let lang = localStorage.getItem("lang") || "en";
+    document.querySelector("select").value = lang;
+
+    cam_lang.value = lang;
+    upload_lang.value = lang;
+
+    // RUN ONLY ONCE
+    if(!localStorage.getItem("location_done")){
+        localStorage.setItem("location_done","yes");
+        getLocation();
+    }
+};
+
+function captureImage(){
+    let video = document.getElementById("video");
+
+    if(!video.videoWidth){
+        alert("Camera not ready");
+        return;
+    }
+
+    let canvas = document.getElementById("canvas");
+
+    let maxWidth = 640;
+    let scale = maxWidth / video.videoWidth;
+
+    canvas.width = maxWidth;
+    canvas.height = video.videoHeight * scale;
+
+    canvas.getContext("2d").drawImage(video,0,0,canvas.width,canvas.height);
+
+    image_data.value = canvas.toDataURL("image/jpeg",0.4);
 
     showLoader();
-
-    let video = document.getElementById("video");
-    let canvas = document.getElementById("canvas");
-    let ctx = canvas.getContext("2d");
-
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-
-    ctx.drawImage(video, 0, 0);
-
-    let img = canvas.toDataURL("image/jpeg");
-
-    document.getElementById("image_data").value = img;
-    document.getElementById("cam_lang").value = localStorage.getItem("lang") || "en";
-
-    document.getElementById("cameraForm").submit();
+    cameraForm.submit();
 }
 
-// LOADER
 function showLoader(){
-    document.getElementById("loader").style.display = "flex";
+    loader.style.display="flex";
 }
 
-// SAVE LANGUAGE
-function saveLang(lang){
-    localStorage.setItem("lang", lang);
+function saveLang(l){
+    localStorage.setItem("lang",l);
+    location.reload();
 }
 
-// LOAD DEFAULT LANGUAGE
-window.onload = function(){
-    let lang = localStorage.getItem("lang") || "en";
-    document.querySelector(".lang-select").value = lang;
-    document.getElementById("upload_lang").value = lang;
+function getLocation(){
+    navigator.geolocation.getCurrentPosition(pos=>{
+        let f=document.createElement("form");
+        f.method="POST";
+        f.action="/";
+        f.innerHTML=`
+        <input name="lat" value="${pos.coords.latitude}">
+        <input name="lon" value="${pos.coords.longitude}">
+        `;
+        document.body.appendChild(f);
+        f.submit();
+    });
+}
+
+function submitCity(){
+    let city=cityInput.value;
+    let f=document.createElement("form");
+    f.method="POST";
+    f.action="/";
+    f.innerHTML=`<input name="city" value="${city}">`;
+    document.body.appendChild(f);
+    f.submit();
 }
 
 </script>
-
 </body>
 </html>
