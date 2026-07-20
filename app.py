@@ -603,9 +603,9 @@ def predict():
             lang=lang
         )
 
-    except Exception as e:
-    traceback.print_exc()
-    return str(e), 500
+        except Exception as e:
+        traceback.print_exc()
+        return str(e), 500
 # ===============================
 # RUN
 # ===============================
