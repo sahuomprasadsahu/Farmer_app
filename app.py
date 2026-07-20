@@ -527,12 +527,12 @@ def forecast():
 
     return json.dumps(data)
 
-
 # ===============================
 # PREDICT
 # ===============================
 @app.route("/predict", methods=["POST"])
 def predict():
+
     try:
         lang = request.form.get("lang", "en")
 
@@ -552,21 +552,22 @@ def predict():
                 image = Image.open(file).convert("RGB")
 
         if image is None:
-            return "No image"
+            return "No image selected", 400
 
         # Resize
-        image = image.resize((512,512))
+        image = image.resize((512, 512))
 
-        img = image.resize((224,224))
-        arr = np.array(img)/255.0
-        arr = np.expand_dims(arr,0)
+        img = image.resize((224, 224))
+        arr = np.array(img) / 255.0
+        arr = np.expand_dims(arr, axis=0)
 
         # Prediction
         pred = final_model.predict(arr, verbose=0)
+
         predicted_class = class_names[np.argmax(pred[0])]
         confidence = float(np.max(pred[0])) * 100
 
-        # ===== FIX LOGIC =====
+        # Status
         if predicted_class == "Non___Leaf":
             status_text = t("not_leaf", lang)
             status_color = "orange"
@@ -582,11 +583,17 @@ def predict():
             status_color = "red"
             info = disease_info.get(predicted_class, {})
 
-        # ===== DESCRIPTION FIX =====
-        description = info.get(f"description_{lang}", info.get("description_en", "No description"))
-        solution = info.get(f"solution_{lang}", info.get("solution_en", "No solution"))
+        description = info.get(
+            f"description_{lang}",
+            info.get("description_en", "No description")
+        )
 
-        # Image compress
+        solution = info.get(
+            f"solution_{lang}",
+            info.get("solution_en", "No solution")
+        )
+
+        # Convert image to base64
         buf = BytesIO()
         image.save(buf, format="JPEG", quality=60)
         img_str = base64.b64encode(buf.getvalue()).decode()
@@ -594,7 +601,7 @@ def predict():
         return render_template(
             "index.html",
             prediction=predicted_class,
-            confidence=round(confidence,2),
+            confidence=round(confidence, 2),
             description=description,
             solution=solution,
             img_data=img_str,
@@ -603,9 +610,10 @@ def predict():
             lang=lang
         )
 
-        except Exception as e:
+    except Exception as e:
+        import traceback
         traceback.print_exc()
-        return str(e), 500
+        return f"<h2>ERROR</h2><pre>{traceback.format_exc()}</pre>", 500
 # ===============================
 # RUN
 # ===============================
