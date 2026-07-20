@@ -12,6 +12,7 @@ import requests
 from sklearn.linear_model import LinearRegression
 import pickle
 from dotenv import load_dotenv
+import traceback
 
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 30 * 1024 * 1024
@@ -60,10 +61,10 @@ final_model = tf.keras.models.load_model(os.path.join(BASE_DIR, "models/final_mo
 # ===============================
 # LOAD CLASS FILES
 # ===============================
-with open("models/plant_classes.json") as f:
+with open(os.path.join(BASE_DIR, "models", "plant_classes.json")) as f:
     plant_classes = json.load(f)
 
-with open("models/class_names.json") as f:
+with open(os.path.join(BASE_DIR, "models", "class_names.json")) as f:
     class_names = json.load(f)
 
 # ===============================
@@ -603,8 +604,8 @@ def predict():
         )
 
     except Exception as e:
-        print("ERROR:", e)
-        return "Error"
+    traceback.print_exc()
+    return str(e), 500
 # ===============================
 # RUN
 # ===============================
